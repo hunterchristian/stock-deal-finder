@@ -56,12 +56,10 @@ const getStockDataSlice = async (
     setTimeout(async () => {
       const rows = [];
       for (let stock of stocks.slice(startIndex, endIndex)) {
-        console.log(`tickersymbol: ${stock.ticker}, name: ${stock.name}`);
-        const res = await getStockInfo(stock.ticker);
+        console.log(`tickersymbol: ${stock}`);
+        const res = await getStockInfo(stock);
         if (!res) {
-          throw new Error(
-            `No response for stock info: ${stock.ticker} - ${stock.name}, skipping.`
-          );
+          throw new Error(`No response for stock info: ${stock}, skipping.`);
         }
 
         try {
@@ -69,19 +67,23 @@ const getStockDataSlice = async (
             ? res.lastPrice.last.price.toFixed(2)
             : 'No price available';
           const latestDividends = res.dividends.results.slice(0, 4);
-          const avgLatestDividend = getSumDividends(latestDividends) / 4;
-          const priceToEarningsRatio =
-            res.financials.results[0].priceToEarningsRatio;
-          const earningsPerBasicShareUSD =
-            res.financials.results[0].earningsPerBasicShareUSD;
+          const avgLatestDividend = (
+            getSumDividends(latestDividends) / 4
+          ).toFixed(2);
+          const priceToEarningsRatio = res.financials.results[0]
+            ? res.financials.results[0].priceToEarningsRatio.toFixed(2)
+            : 'None';
+          const earningsPerBasicShareUSD = res.financials.results[0]
+            ? res.financials.results[0].earningsPerBasicShareUSD.toFixed(2)
+            : 'None';
 
           const row = [
             stock.ticker,
             stock.name,
             lastPrice,
-            priceToEarningsRatio.toFixed(2),
-            earningsPerBasicShareUSD.toFixed(2),
-            avgLatestDividend.toFixed(2),
+            priceToEarningsRatio,
+            earningsPerBasicShareUSD,
+            avgLatestDividend,
           ];
           console.log(`row: ${JSON.stringify(row)}`);
           rows.push(row);
@@ -96,20 +98,6 @@ const getStockDataSlice = async (
 
 async function main() {
   try {
-    const res = await (
-      await fetch(
-        `https://api.polygon.io/v2/reference/tickers?type=cs&perpage=1000&active=true&apiKey=${LIVE_API_KEY}`
-      )
-    ).json();
-    if (!res) {
-      throw new Error('No response for stock tickers, exiting.');
-    }
-
-    const stocks = res.tickers.map(({ ticker, name }: any) => ({
-      ticker,
-      name,
-    }));
-
     let rows = [
       [
         'Ticker symbol',
@@ -121,15 +109,18 @@ async function main() {
       ],
     ];
     let index = 0;
-    console.log(`fetching data for ${stocks.length} stocks`);
+    console.log(`fetching data for ${TICKER_SYMBOLS.length} stocks`);
     while (index < TICKER_SYMBOLS.length) {
       const stockDataSlice = await getStockDataSlice(
-        stocks,
+        TICKER_SYMBOLS,
         index,
-        Math.min(stocks.length, index + MAXIMUM_REQUESTS_PER_MINUTE)
+        Math.min(TICKER_SYMBOLS.length, index + MAXIMUM_REQUESTS_PER_MINUTE)
       );
       rows = rows.concat(stockDataSlice);
-      index = Math.min(stocks.length, index + MAXIMUM_REQUESTS_PER_MINUTE);
+      index = Math.min(
+        TICKER_SYMBOLS.length,
+        index + MAXIMUM_REQUESTS_PER_MINUTE
+      );
     }
 
     const f = await Deno.open('./stockdata.csv', {
