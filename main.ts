@@ -78,8 +78,7 @@ const getStockDataSlice = async (
             : 'None';
 
           const row = [
-            stock.ticker,
-            stock.name,
+            stock,
             lastPrice,
             priceToEarningsRatio,
             earningsPerBasicShareUSD,
