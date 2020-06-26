@@ -65,7 +65,9 @@ const getStockDataSlice = async (
         }
 
         try {
-          const lastPrice = res.lastPrice.last.price.toFixed(2);
+          const lastPrice = res.lastPrice.last
+            ? res.lastPrice.last.price.toFixed(2)
+            : 'No price available';
           const latestDividends = res.dividends.results.slice(0, 4);
           const avgLatestDividend = getSumDividends(latestDividends) / 4;
           const priceToEarningsRatio =
@@ -96,7 +98,7 @@ async function main() {
   try {
     const res = await (
       await fetch(
-        `https://api.polygon.io/v2/reference/tickers?type=cs&apiKey=${LIVE_API_KEY}`
+        `https://api.polygon.io/v2/reference/tickers?type=cs&perpage=1000&active=true&apiKey=${LIVE_API_KEY}`
       )
     ).json();
     if (!res) {
