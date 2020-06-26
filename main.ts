@@ -11,31 +11,37 @@ const { LIVE_API_KEY, PAPER_API_KEY, PAPER_SECRET_KEY } = config({
 
 // https://alpaca.markets/docs/api-documentation/api-v2/market-data/last-trade/
 // https://polygon.io/docs/#get_v2_reference_dividends__symbol__anchor
-const getStockInfo = async (tickerSymbol: string) => ({
-  lastPrice: await (
-    await fetch(
-      new Request(
-        `https://data.alpaca.markets/v1/last/stocks/${tickerSymbol}`,
-        {
-          headers: {
-            'APCA-API-KEY-ID': PAPER_API_KEY,
-            'APCA-API-SECRET-KEY': PAPER_SECRET_KEY,
-          },
-        }
-      )
-    )
-  ).json(),
-  financials: await (
-    await fetch(
-      `https://api.polygon.io/v2/reference/financials/${tickerSymbol}?apiKey=${LIVE_API_KEY}`
-    )
-  ).json(),
-  dividends: await (
-    await fetch(
-      `https://api.polygon.io/v2/reference/dividends/${tickerSymbol}?apiKey=${LIVE_API_KEY}`
-    )
-  ).json(),
-});
+const getStockInfo = async (tickerSymbol: string) => {
+  try {
+    return {
+      lastPrice: await (
+        await fetch(
+          new Request(
+            `https://data.alpaca.markets/v1/last/stocks/${tickerSymbol}`,
+            {
+              headers: {
+                'APCA-API-KEY-ID': PAPER_API_KEY,
+                'APCA-API-SECRET-KEY': PAPER_SECRET_KEY,
+              },
+            }
+          )
+        )
+      ).json(),
+      financials: await (
+        await fetch(
+          `https://api.polygon.io/v2/reference/financials/${tickerSymbol}?apiKey=${LIVE_API_KEY}`
+        )
+      ).json(),
+      dividends: await (
+        await fetch(
+          `https://api.polygon.io/v2/reference/dividends/${tickerSymbol}?apiKey=${LIVE_API_KEY}`
+        )
+      ).json(),
+    };
+  } catch (err) {
+    console.error(`CAUGHT ERROR: ${err.message}`);
+  }
+};
 
 const getSumDividends = (dividends: any[]) =>
   dividends.reduce((a, v) => a + v.amount, 0);
@@ -52,6 +58,11 @@ const getStockDataSlice = async (
       for (let stock of stocks.slice(startIndex, endIndex)) {
         console.log(`tickersymbol: ${stock.ticker}, name: ${stock.name}`);
         const res = await getStockInfo(stock.ticker);
+        if (!res) {
+          throw new Error(
+            `No response for stock info: ${stock.ticker} - ${stock.name}, skipping.`
+          );
+        }
 
         try {
           const lastPrice = res.lastPrice.last.price.toFixed(2);
@@ -82,43 +93,54 @@ const getStockDataSlice = async (
   });
 
 async function main() {
-  const res = await (
-    await fetch(
-      `https://api.polygon.io/v2/reference/tickers?type=cs&apiKey=${LIVE_API_KEY}`
-    )
-  ).json();
-  const stocks = res.tickers.map(({ ticker, name }: any) => ({ ticker, name }));
+  try {
+    const res = await (
+      await fetch(
+        `https://api.polygon.io/v2/reference/tickers?type=cs&apiKey=${LIVE_API_KEY}`
+      )
+    ).json();
+    if (!res) {
+      throw new Error('No response for stock tickers, exiting.');
+    }
 
-  let rows = [
-    [
-      'Ticker symbol',
-      'Name',
-      'Last price',
-      'Price-to-earnings ratio',
-      'Earnings per basic share USD',
-      'Avg of last 4 dividend payouts',
-    ],
-  ];
-  let index = 0;
-  console.log(`fetching data for ${stocks.length} stocks`);
-  while (index < TICKER_SYMBOLS.length) {
-    const stockDataSlice = await getStockDataSlice(
-      stocks,
-      index,
-      index + MAXIMUM_REQUESTS_PER_MINUTE
-    );
-    rows = rows.concat(stockDataSlice);
-    index = index + MAXIMUM_REQUESTS_PER_MINUTE;
+    const stocks = res.tickers.map(({ ticker, name }: any) => ({
+      ticker,
+      name,
+    }));
+
+    let rows = [
+      [
+        'Ticker symbol',
+        'Name',
+        'Last price',
+        'Price-to-earnings ratio',
+        'Earnings per basic share USD',
+        'Avg of last 4 dividend payouts',
+      ],
+    ];
+    let index = 0;
+    console.log(`fetching data for ${stocks.length} stocks`);
+    while (index < TICKER_SYMBOLS.length) {
+      const stockDataSlice = await getStockDataSlice(
+        stocks,
+        index,
+        Math.min(stocks.length, index + MAXIMUM_REQUESTS_PER_MINUTE)
+      );
+      rows = rows.concat(stockDataSlice);
+      index = Math.min(stocks.length, index + MAXIMUM_REQUESTS_PER_MINUTE);
+    }
+
+    const f = await Deno.open('./stockdata.csv', {
+      write: true,
+      create: true,
+      truncate: true,
+    });
+    rows.push();
+    await writeCSV(f, rows);
+    f.close();
+  } catch (err) {
+    console.error(`CAUGHT ERROR: ${err.message}`);
   }
-
-  const f = await Deno.open('./stockdata.csv', {
-    write: true,
-    create: true,
-    truncate: true,
-  });
-  rows.push();
-  await writeCSV(f, rows);
-  f.close();
 }
 
 main();
