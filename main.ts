@@ -1,6 +1,8 @@
 import { writeCSV } from "https://deno.land/x/csv/mod.ts";
-import TICKER_SYMBOLS from "./scripts/tickersymbols/tickersymbols.ts";
+import T from "./scripts/tickersymbols/tickersymbols.ts";
 import getStockInfoForSlice from "./getStockInfoForSlice.ts";
+
+const TICKER_SYMBOLS = T.slice(0, 10);
 
 const MAXIMUM_REQUESTS_PER_MINUTE = 180;
 const csvHeaderRow = [
@@ -13,7 +15,7 @@ const csvHeaderRow = [
 
 async function main() {
   try {
-    let rows = [csvHeaderRow];
+    let rows = [[new Date().toDateString(), "", "", "", ""], csvHeaderRow];
     let index = 0;
     console.log(`main.ts: Job run timestamp - ${new Date()}`);
     console.log(`main.ts: fetching data for ${TICKER_SYMBOLS.length} stocks`);
