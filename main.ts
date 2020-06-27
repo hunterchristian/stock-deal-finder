@@ -15,6 +15,7 @@ async function main() {
   try {
     let rows = [csvHeaderRow];
     let index = 0;
+    console.log(`main.ts: Job run timestamp - ${new Date()}`);
     console.log(`main.ts: fetching data for ${TICKER_SYMBOLS.length} stocks`);
     while (index < TICKER_SYMBOLS.length) {
       const stockDataSlice = await getStockInfoForSlice(
