@@ -1,4 +1,5 @@
 import getSingleStockInfo from "./getSingleStockInfo.ts";
+import { serializeError } from "https://deno.land/x/deno_serialize_error/mod.ts";
 
 const ONE_MINUTE_MILLIS = 60000;
 const MAX_PRICE_TO_EARNINGS_RATIO = 50;
@@ -21,15 +22,16 @@ const getStockInfoForSlice = async (
       for (let stock of stocks.slice(startIndex, endIndex)) {
         console.log("===============================");
         const res = await getSingleStockInfo(stock);
-        if (!res) {
-          throw new Error(`${stock}: no response for stock info, skipping.`);
-        }
 
         try {
+          if (!res) {
+            throw new Error(`${stock}: no response for stock info, skipping.`);
+          }
+
           const lastPrice = res.lastPrice.last
             ? res.lastPrice?.last?.price?.toFixed(2)
             : "No price available";
-          const latestDividends = res.dividends?.results.slice(0, 4);
+          const latestDividends = res.dividends?.results?.slice(0, 4);
           const avgLatestDividend = (
             getSumDividends(latestDividends) / 4
           ).toFixed(2);
@@ -59,7 +61,9 @@ const getStockInfoForSlice = async (
             console.log(`${stock}: stock does not meet criteria, skipping`);
           }
         } catch (err) {
-          console.error(`${stock}: CAUGHT ERROR: ${err.message}`);
+          console.error(
+            `${stock}: CAUGHT ERROR: ${JSON.stringify(serializeError(err))}`
+          );
         }
       }
 

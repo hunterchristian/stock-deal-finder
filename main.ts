@@ -1,9 +1,11 @@
 import { writeCSV } from "https://deno.land/x/csv/mod.ts";
 import T from "./scripts/tickersymbols/tickersymbols.ts";
 import getStockInfoForSlice from "./getStockInfoForSlice.ts";
+import { serializeError } from "https://deno.land/x/deno_serialize_error/mod.ts";
 
 const TICKER_SYMBOLS = T.slice(0, 10);
 
+const PROJECT_DIR = `${Deno.env.get("HOME")}/stock-deal-finder`;
 const MAXIMUM_REQUESTS_PER_MINUTE = 180;
 const csvHeaderRow = [
   "Ticker symbol",
@@ -32,16 +34,28 @@ async function main() {
       );
     }
 
-    const f = await Deno.open("./stockdata.csv", {
+    try {
+      await Deno.remove(`${PROJECT_DIR}/stockdata.csv`);
+    } catch (err) {
+      console.error(
+        `main.ts: CAUGHT ERROR: ${JSON.stringify(serializeError(err))}`
+      );
+    }
+
+    const f = await Deno.open(`${PROJECT_DIR}/stockdata.csv`, {
       write: true,
       create: true,
       truncate: true,
     });
     await writeCSV(f, rows);
     f.close();
-    console.log(`main.ts: wrote ${rows.length} rows to ./stockdata.csv`);
+    console.log(
+      `main.ts: wrote ${rows.length} rows to ${PROJECT_DIR}/stockdata.csv`
+    );
   } catch (err) {
-    console.error(`main.ts: CAUGHT ERROR: ${err.message}`);
+    console.error(
+      `main.ts: CAUGHT ERROR: ${JSON.stringify(serializeError(err))}`
+    );
   }
 }
 

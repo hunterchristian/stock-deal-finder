@@ -1,7 +1,10 @@
 import { config } from "https://deno.land/x/dotenv/mod.ts";
+import { serializeError } from "https://deno.land/x/deno_serialize_error/mod.ts";
 
+const PROJECT_DIR = `${Deno.env.get("HOME")}/stock-deal-finder`;
 const { LIVE_API_KEY, PAPER_API_KEY, PAPER_SECRET_KEY } = config({
   safe: true,
+  path: `${PROJECT_DIR}/.env`,
 });
 
 // https://alpaca.markets/docs/api-documentation/api-v2/market-data/last-trade/
@@ -22,21 +25,45 @@ const getStockInfo = async (tickerSymbol: string) => {
         )
       )
     ).json();
-    console.log(`${tickerSymbol}: lastPrice complete`);
+    if (lastPrice.code > 40000000) {
+      throw new Error(
+        `${tickerSymbol} - ERROR: lastPrice response - ${JSON.stringify(
+          lastPrice
+        )}`
+      );
+    } else {
+      console.log(`${tickerSymbol}: lastPrice complete`);
+    }
 
     const financials = await (
       await fetch(
         `https://api.polygon.io/v2/reference/financials/${tickerSymbol}?apiKey=${LIVE_API_KEY}`
       )
     ).json();
-    console.log(`${tickerSymbol}: financials complete`);
+    if (financials.status === "ERROR") {
+      throw new Error(
+        `${tickerSymbol} - ERROR: financials response - ${JSON.stringify(
+          financials
+        )}`
+      );
+    } else {
+      console.log(`${tickerSymbol}: financials complete`);
+    }
 
     const dividends = await (
       await fetch(
         `https://api.polygon.io/v2/reference/dividends/${tickerSymbol}?apiKey=${LIVE_API_KEY}`
       )
     ).json();
-    console.log(`${tickerSymbol}: dividends complete`);
+    if (dividends.status === "ERROR") {
+      throw new Error(
+        `${tickerSymbol} - ERROR: dividends response - ${JSON.stringify(
+          dividends
+        )}`
+      );
+    } else {
+      console.log(`${tickerSymbol}: dividends complete`);
+    }
 
     return {
       lastPrice,
@@ -44,7 +71,9 @@ const getStockInfo = async (tickerSymbol: string) => {
       dividends,
     };
   } catch (err) {
-    console.error(`${tickerSymbol}: CAUGHT ERROR: ${err.message}`);
+    console.error(
+      `${tickerSymbol}: CAUGHT ERROR: ${JSON.stringify(serializeError(err))}`
+    );
   }
 };
 
